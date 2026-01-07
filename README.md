@@ -1,0 +1,2 @@
+# R_Repo_Factory_01
+TemplateからRepositoryを新規作成するRepositoryです。
