@@ -1,16 +1,19 @@
 name: Repo Factory - Create Repository
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
+      template_name:
+        description: "テンプレートリポジトリ名"
+        required: true
       repo_name:
-        description: "新仓库名（如 STD001-payment-api）"
+        description: "新しいリポジトリ名（例：AEGIS_S_STD001_xxxxxx）"
         required: true
       codeowner:
-        description: "Code Owner（team 名，如 release-payment）"
-        required: true
-      standard:
-        description: "合规编号（如 STD001）"
+        description: "Code Owner（カンマ区切り）"
         required: true
 
 jobs:
@@ -18,41 +21,106 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Validate repository name
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.JW_APP_ID }}
+          private-key: ${{ secrets.JW_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Set GH_TOKEN
+        run: echo "GH_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_ENV
+
+      - name: 入力パラメータの検証
         id: validate
         run: |
+          # ---------------------------------------------------
+          # 1. テンプレートの存在チェック
+          # ---------------------------------------------------
+          TEMPLATE_NAME="${{ github.event.inputs.template_name }}"
+          echo "テンプレートを検証中: $TEMPLATE_NAME"
+
+          STATUS_TPL=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/${{ github.repository_owner }}/$TEMPLATE_NAME)
+
+          if [ "$STATUS_TPL" != "200" ]; then
+            echo "❌ テンプレートリポジトリ($TEMPLATE_NAME)が見つかりません"
+            exit 1
+          fi
+          echo "✅ テンプレート確認OK"
+
+          # ---------------------------------------------------
+          # 2. Code Ownerの存在チェック（組織メンバーであること）
+          # ---------------------------------------------------
+          INPUT_OWNERS="${{ github.event.inputs.codeowner }}"
+          echo "Code Ownerを検証中（組織メンバーチェック）: $INPUT_OWNERS"
+
+          # カンマで分割してループ
+          IFS=',' read -r -a OWNER_ARRAY <<< "$INPUT_OWNERS"
+          for OWNER in "${OWNER_ARRAY[@]}"; do
+            # 空白除去
+            OWNER=$(echo "$OWNER" | xargs)
+            if [ -z "$OWNER" ]; then continue; fi
+
+            echo "  Checking member: $OWNER"
+            STATUS_USER=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              https://api.github.com/orgs/${{ github.repository_owner }}/members/$OWNER)
+              
+            if [ "$STATUS_USER" != "204" ]; then
+              echo "❌ ユーザー($OWNER)は、組織(${{ github.repository_owner }})のメンバーではありません、または存在しません"
+              exit 1
+            fi
+            # 注意: /orgs/{org}/members/{username} は、メンバーである場合 204 No Content を返します
+            # メンバーでない場合 404 Not Found (または 302) を返します
+          done
+          echo "✅ Code Owner確認OK"
+
+          # ---------------------------------------------------
+          # 3. リポジトリ名のルールチェック
+          # ---------------------------------------------------
           REPO_NAME="${{ github.event.inputs.repo_name }}"
+          echo "リポジトリ名を検証中: $REPO_NAME"
 
-          echo "Checking repo name: $REPO_NAME"
-
-          # 规则 1：正则校验
-          if ! [[ "$REPO_NAME" =~ ^STD[0-9]{3}-[a-z0-9-]+$ ]]; then
-            echo "❌ 仓库名不符合命名规范"
+          # ルール 1：文字種チェック（英数字, _, - のみ）
+          if ! [[ "$REPO_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "❌ リポジトリ名に使用できない文字が含まれています"
             exit 1
           fi
 
-          # 规则 2：长度限制
-          if [ ${#REPO_NAME} -gt 50 ]; then
-            echo "❌ 仓库名过长（>50）"
+          # ルール 2：構成チェック（AEGIS_S_STD001_xxxxxx）
+          # 第一部分: AEGIS
+          # 第二部分: P or S
+          # 第三部分: STD or PRO start
+          if ! [[ "$REPO_NAME" =~ ^AEGIS_[PS]_(STD|PRO) ]]; then
+             echo "❌ リポジトリ名の形式が正しくありません（例：AEGIS_S_STD001_xxxxxx）"
+             exit 1
+          fi
+
+          # ルール 3：長さ制限 (Githubの推奨に従う、最大100文字とする)
+          if [ ${#REPO_NAME} -gt 100 ]; then
+            echo "❌ リポジトリ名が長すぎます（>100）"
             exit 1
           fi
 
-          # 规则 3：是否已存在
+          # ルール 4：既存在チェック
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer ${{ secrets.ORG_ADMIN_TOKEN }}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             https://api.github.com/repos/${{ github.repository_owner }}/$REPO_NAME)
 
           if [ "$STATUS" == "200" ]; then
-            echo "❌ 仓库已存在"
+            echo "❌ リポジトリは既に存在します"
             exit 1
           fi
 
-          echo "✅ 仓库名校验通过"
+          echo "✅ 検証に合格しました"
 
-      - name: Create repository from template
+      - name: テンプレートからリポジトリを作成
         run: |
           curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.ORG_ADMIN_TOKEN }}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/orgs/${{ github.repository_owner }}/repos \
             -d @- <<EOF
@@ -61,23 +129,22 @@ jobs:
             "private": true,
             "template_repository": {
               "owner": "${{ github.repository_owner }}",
-              "name": "base-template"
+              "name": "${{ github.event.inputs.template_name }}"
             }
           }
           EOF
 
-      - name: Dispatch init workflow to new repo
+      - name: 新しいリポジトリへ初期化ワークフローをディスパッチ
         run: |
           curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.ORG_ADMIN_TOKEN }}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}/dispatches \
             -d @- <<EOF
           {
             "event_type": "repo-init",
             "client_payload": {
-              "codeowner": "${{ github.event.inputs.codeowner }}",
-              "standard": "${{ github.event.inputs.standard }}"
+              "codeowner": "${{ github.event.inputs.codeowner }}"
             }
           }
           EOF
