@@ -366,3 +366,5 @@ jobs:
               # cat clean_ruleset.json
               # エラーでも後続のブランチ処理は続けるため exit せず continue
               continue
+            fi
+          done
