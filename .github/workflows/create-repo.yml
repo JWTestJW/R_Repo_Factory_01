@@ -143,15 +143,15 @@ jobs:
           SLEEP_SEC=5
 
           for ((i=1; i<=MAX_RETRIES; i++)); do
-            echo "Attempt $i/$MAX_RETRIES: Checking repo existence..."
+            echo "Attempt $i/$MAX_RETRIES: Checking repo and main branch existence..."
             
-            # リポジトリの情報を取得して存在確認 (200 OK なら作成完了とみなす)
+            # リポジトリのmainブランチ情報を取得して存在確認 (200 OK なら作成完了とみなす)
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               -H "Authorization: Bearer $GH_TOKEN" \
-              https://api.github.com/repos/$TARGET_REPO)
+              https://api.github.com/repos/$TARGET_REPO/branches/main)
             
             if [ "$HTTP_CODE" == "200" ]; then
-              echo "✅ リポジトリ作成完了を確認しました。"
+              echo "✅ リポジトリ作成完了とmainブランチの存在を確認しました。"
               exit 0
             fi
             
@@ -201,8 +201,7 @@ jobs:
           cd $WORK_DIR
 
           # 新リポジトリをclone (GH_TOKEN使用)
-          # git init/fetch 手順ではブランチ名(main/master)の不一致や同期ズレのリスクがあるため clone を使用
-          git clone "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository_owner }}/$REPO_NAME.git" .
+          git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository_owner }}/$REPO_NAME.git" .
 
           # CODEOWNERS生成
           # カンマをスペースに変換し、xargsで整形（前後空白削除）
