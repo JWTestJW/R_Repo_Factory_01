@@ -128,17 +128,42 @@ jobs:
           curl -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/orgs/${{ github.repository_owner }}/repos \
+            https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.inputs.template_name }}/generate \
             -d @- <<EOF
           {
             "name": "${{ github.event.inputs.repo_name }}",
-            "private": true,
-            "template_repository": {
-              "owner": "${{ github.repository_owner }}",
-              "name": "${{ github.event.inputs.template_name }}"
-            }
+            "owner": "${{ github.repository_owner }}",
+            "private": false
           }
           EOF
+
+      - name: リポジトリ作成完了待機 (Wait for creation)
+        run: |
+          TARGET_REPO="${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}"
+          echo "リポジトリの作成完了を待機中: $TARGET_REPO"
+
+          MAX_RETRIES=10
+          SLEEP_SEC=5
+
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            echo "Attempt $i/$MAX_RETRIES: Checking repo existence..."
+            
+            # リポジトリの情報を取得して存在確認 (200 OK なら作成完了とみなす)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              https://api.github.com/repos/$TARGET_REPO)
+            
+            if [ "$HTTP_CODE" == "200" ]; then
+              echo "✅ リポジトリ作成完了を確認しました。"
+              exit 0
+            fi
+            
+            echo "Waiting ${SLEEP_SEC}s..."
+            sleep $SLEEP_SEC
+          done
+
+          echo "❌ タイムアウト: リポジトリの作成を確認できませんでした。"
+          exit 1
 
       - name: カスタムプロパティ (StudyNo) を設定
         run: |
