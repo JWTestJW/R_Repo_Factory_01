@@ -15,6 +15,12 @@ on:
       codeowner:
         description: "Code Owner（カンマ区切り）"
         required: true
+      team_slug:
+        description: "Team Slug（Team名ではありません）"
+        required: true
+      study_no:
+        description: "Studyナンバー"
+        required: true
 
 jobs:
   create-repo:
@@ -134,6 +140,28 @@ jobs:
           }
           EOF
 
+      - name: カスタムプロパティ (StudyNo) を設定
+        run: |
+          # Custom Property 設定 (PATCH /repos/{owner}/{repo}/custom-properties/values)
+          # 注意: 事前にOrganization側で 'StudyNo' というプロパティが定義されている必要があります
+
+          curl -L \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}/custom-properties/values \
+            -d @- <<EOF
+          {
+            "properties": [
+              {
+                "property_name": "StudyNo",
+                "value": "${{ github.event.inputs.study_no }}"
+              }
+            ]
+          }
+          EOF
+
       - name: 新しいリポジトリへ初期化ワークフローをディスパッチ
         run: |
           curl -X POST \
@@ -144,7 +172,9 @@ jobs:
           {
             "event_type": "repo-init",
             "client_payload": {
-              "codeowner": "${{ github.event.inputs.codeowner }}"
+              "codeowner": "${{ github.event.inputs.codeowner }}",
+              "team_slug": "${{ github.event.inputs.team_slug }}",
+              "study_no": "${{ github.event.inputs.study_no }}"
             }
           }
           EOF
