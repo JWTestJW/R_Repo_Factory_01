@@ -201,17 +201,10 @@ jobs:
           cd $WORK_DIR
 
           # 新リポジトリをclone (GH_TOKEN使用)
-          git init
-          git remote add origin "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository_owner }}/$REPO_NAME.git"
-          git fetch origin
-          # templateから作成直後なのでmainブランチがあるはず
-          git checkout main || git checkout -b main
+          # git init/fetch 手順ではブランチ名(main/master)の不一致や同期ズレのリスクがあるため clone を使用
+          git clone "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository_owner }}/$REPO_NAME.git" .
 
-          # CODEOWNERS生成 (init-repo.ymlと同じロジック)
-          # 渡されたパラメータ($CODE_OWNER)は、カンマ区切りの文字列です
-          # 呼び出し元で検証済みのため、ここでは単純にカンマで分割し、@を付与して並べます
-          # xargs を使うことで、カンマ前後の不要な空白は自動的に削除されます
-
+          # CODEOWNERS生成
           # カンマをスペースに変換し、xargsで整形（前後空白削除）
           # Githubユーザー名に空白は含まれないため、xargsの空白圧縮も問題になりません
           CLEAN_OWNERS=$(echo "$CODE_OWNER" | tr ',' ' ' | xargs)
