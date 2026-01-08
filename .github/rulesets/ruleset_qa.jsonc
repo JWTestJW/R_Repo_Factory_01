@@ -1,0 +1,73 @@
+{
+  "name": "Branch(Qa) Protection Ruleset",
+
+  // ターゲットの種類 (可能な値: branch, tag)
+  "target": "branch",
+
+  // ルールセットの適用状態
+  // active: 有効 (ルールを強制する)
+  // disabled: 無効 (ルールを適用しない)
+  // evaluate: 評価モード (ルール違反を記録するが、ブロックはしない)
+  "enforcement": "active",
+
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/qa"], // 適用対象のブランチ (例: refs/heads/main, refs/heads/feature/*)
+      "exclude": [] // 除外対象のブランチ
+    }
+  },
+  "rules": [
+    {
+      "type": "deletion" // ブランチの削除を禁止します
+    },
+    {
+      "type": "non_fast_forward" // 強制プッシュ (Force Push) を禁止します。Fast-forward 以外のプッシュは拒否されます。
+      // これにより履歴の改変が防がれます。
+    },
+    {
+      "type": "creation" // ブランチの作成を禁止します
+      // 注意: このルールが存在すると、対象名のブランチを新規作成または再作成できなくなります。
+      // 旧保護設定 (block_creations: false) と同様にする場合は、このブロックを削除してください。
+    },
+    {
+      "type": "required_linear_history" // マージコミットを禁止し、一直線の履歴 (Linear history) を強制します。
+      // Squash merge または Rebase merge が必要になります。
+    },
+    {
+      "type": "pull_request", // プルリクエスト (PR) を必須にします
+      "parameters": {
+        // マージに必要な承認数
+        // 0: 承認は不要だがPRは必須, 1以上: 指定数の承認が必要
+        "required_approving_review_count": 0,
+
+        // 新しいコミットがプッシュされた際に、既存の承認を取り消すか
+        // true: 取り消す (再レビューが必要), false: 取り消さない
+        "dismiss_stale_reviews_on_push": true,
+
+        // コードオーナー (CODEOWNERS) によるレビューを必須にするか
+        // true: 必須, false: 任意
+        "require_code_owner_review": false,
+
+        // 最新のプッシュに対して承認を必須にするか (承認後にプッシュされた場合、再承認が必要)
+        // true: 必須, false: 任意
+        "require_last_push_approval": false,
+
+        // PR内の会話スレッドがすべて解決済みであることを必須にするか
+        // true: 必須, false: 任意
+        "required_review_thread_resolution": false
+      }
+    },
+    {
+      "type": "required_status_checks", // マージ前のステータスチェック (CI) 合格を必須にします
+      "parameters": {
+        // マージする前に、ブランチがターゲットブランチ(main)に対して最新であることを要求するか
+        // true: 最新である必要がある (遅れている場合 update が必要), false: 厳密には要求しない
+        "strict_required_status_checks_policy": true,
+
+        // 必須とするステータスチェックのリスト
+        // 配列内にオブジェクトとして指定 (例: {"context": "build-job"})
+        "required_status_checks": []
+      }
+    }
+  ]
+}
