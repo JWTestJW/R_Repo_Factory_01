@@ -170,14 +170,18 @@ jobs:
           # Custom Property 設定 (PATCH /repos/{owner}/{repo}/custom-properties/values)
           # 注意: 事前にOrganization側で 'StudyNo' というプロパティが定義されている必要があります
 
+          # APIバージョンヘッダーを追加して curl を実行
           curl -L \
             -X PATCH \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}/custom-properties/values \
+            https://api.github.com/orgs/${{ github.repository_owner }}/properties/values \
             -d @- <<EOF
           {
+            "repository_names": [
+              "${{ github.event.inputs.repo_name }}"
+            ],
             "properties": [
               {
                 "property_name": "StudyNo",
@@ -189,10 +193,14 @@ jobs:
 
       - name: 新しいリポジトリへ初期化ワークフローをディスパッチ
         run: |
-          curl -X POST \
+          TARGET_URL="https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}/dispatches"
+          echo "Dispatching to: $TARGET_URL"
+
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}/dispatches \
+            $TARGET_URL \
             -d @- <<EOF
           {
             "event_type": "repo-init",
@@ -203,3 +211,12 @@ jobs:
             }
           }
           EOF
+          )
+
+          if [ "$STATUS_CODE" == "204" ]; then
+             echo "✅ Dispatch request accepted (204)."
+             echo "⚠️ 注意: ワークフローが開始されない場合、テンプレートリポジトリに '.github/workflows/init-repo.yml' が存在するか確認してください。"
+          else
+             echo "❌ Dispatch failed with status: $STATUS_CODE"
+             exit 1
+          fi
