@@ -26,6 +26,14 @@ on:
         description: "StudyNo カスタムプロパティ値"
         required: true
         default: "STD001"
+      team_mode:
+        description: "開発モード (Single: 個人/管理者のみ, Team: 複数人/レビュー必須)"
+        required: true
+        default: "Team"
+        type: choice
+        options:
+          - Team
+          - Single
 
 jobs:
   create-repo:
@@ -374,7 +382,8 @@ jobs:
       - name: Rulesetの設定 (Import from file)
         run: |
           TARGET_REPO="${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}"
-          echo "Setting up rulesets for $TARGET_REPO"
+          TEAM_MODE="${{ github.event.inputs.team_mode }}"
+          echo "Setting up rulesets for $TARGET_REPO (Mode: $TEAM_MODE)"
 
           # ルールセット定義ファイルのディレクトリ
           FACTORY_REPO="${{ github.repository }}" 
@@ -418,6 +427,23 @@ jobs:
             # sedで // 以降を削除。文字列内の // を誤検知するリスクがあるが、
             # 現在の定義ファイルにはURL等が含まれていないため許容する。
             sed 's|//.*||g' temp_ruleset.json > clean_ruleset.json
+
+            # ---------------------------------------------------
+            # モードに応じたJSONの動的書き換え
+            # ---------------------------------------------------
+            if [ "$TEAM_MODE" == "Single" ]; then
+              echo "ℹ️ Single Mode detected: Disabling required approvals for $BRANCH ruleset."
+              
+              # jq を使って値を書き換える
+              # required_approving_review_count -> 0
+              # require_code_owner_review -> false
+              
+              jq '(.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count) = 0 | 
+                  (.rules[] | select(.type == "pull_request") | .parameters.require_code_owner_review) = false' \
+                  clean_ruleset.json > modified_ruleset.json
+                  
+              mv modified_ruleset.json clean_ruleset.json
+            fi
 
             echo "Creating ruleset for branch: $BRANCH..."
             
