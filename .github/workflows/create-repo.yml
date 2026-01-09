@@ -263,19 +263,24 @@ jobs:
           git commit -m "chore: setup CODEOWNERS and activate actions"
           git push origin main
 
+          echo "✅ CODEOWNERSのPush完了。Actionsがアクティブ化されました。"
+
+          # 後始末
+          cd ..
+          rm -rf $WORK_DIR
+
+      - name: Pull Request設定 (Merge Policies)
+        run: |
           # ---------------------------------------------------
           # Pull Request設定 (Merge Policies)
           # ---------------------------------------------------
           # Rulesetで "required_linear_history" を有効にしているため、
           # GithubのPR設定側でも Squash Merge のみを許可し、Merge Commit と Rebase は禁止する必要があります。
-          # 設定しないと、PR画面でMergeボタンが押せない、またはルール違反でマージできない状況になります。
 
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
           echo "Configuring PR merge strategies (Squash only)..."
 
           # PATCH /repos/{owner}/{repo}
-          # allow_squash_merge: true
-          # allow_merge_commit: false
-          # allow_rebase_merge: false
           curl -s -X PATCH \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
@@ -286,10 +291,28 @@ jobs:
               "allow_rebase_merge": false,
               "delete_branch_on_merge": false
             }'
+            
+          echo "✅ Merge Policies 設定完了 (Squash only)"
 
+      - name: 分支作成 (dev/qa)
+        run: |
           # ---------------------------------------------------
           # 分支作成: dev, qa... (基于main)
           # ---------------------------------------------------
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+
+          # 作業用ディレクトリ
+          WORK_DIR="temp_branch_$REPO_NAME"
+          mkdir -p $WORK_DIR
+          cd $WORK_DIR
+
+          # 新リポジトリをclone (GH_TOKEN使用)
+          git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository_owner }}/$REPO_NAME.git" .
+
+          # Git用户设定 (统一使用 github-actions[bot])
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           echo "Creating additional branches: ${{ env.OTHER_BRANCHES }}"
 
           for BRANCH in ${{ env.OTHER_BRANCHES }}; do
@@ -301,8 +324,6 @@ jobs:
           done
 
           echo "✅ 分支作成完了"
-
-          echo "✅ CODEOWNERSのPush完了。Actionsがアクティブ化されました。"
 
           # 後始末
           cd ..
