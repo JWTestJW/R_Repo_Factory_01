@@ -19,9 +19,9 @@ on:
         required: true
         default: "test001leader"
       team_slug:
-        description: "Team Slug（Team名ではありません）"
+        description: "Team Slug（Team名ではありません）、カンマ区切りで複数指定可"
         required: true
-        default: "test001"
+        default: "test001, test001leader"
       study_no:
         description: "StudyNo カスタムプロパティ値"
         required: true
@@ -247,28 +247,35 @@ jobs:
 
       - name: TeamにWrite権限を付与
         run: |
-          TEAM_SLUG="${{ github.event.inputs.team_slug }}"
+          INPUT_TEAMS="${{ github.event.inputs.team_slug }}"
           REPO_NAME="${{ github.event.inputs.repo_name }}"
           OWNER="${{ github.repository_owner }}"
 
-          echo "Assigning Write permission to team: $TEAM_SLUG for repo: $REPO_NAME"
+          echo "Assigning Write permission to teams: $INPUT_TEAMS for repo: $REPO_NAME"
 
-          # チームに push (Write) 権限を付与
-          # PUT /orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X PUT \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -d '{"permission":"push"}' \
-            "https://api.github.com/orgs/$OWNER/teams/$TEAM_SLUG/repos/$OWNER/$REPO_NAME")
+          # カンマで分割してループ
+          CLEAN_TEAMS=$(echo "$INPUT_TEAMS" | tr ',' ' ' | xargs)
 
-          if [ "$STATUS" == "204" ]; then
-            echo "✅ Team '$TEAM_SLUG' added with Write access."
-          else
-            echo "❌ Failed to add team. Status code: $STATUS"
-            echo "   Check if team slug is correct and app has permissions."
-            exit 1
-          fi
+          for TEAM_SLUG in $CLEAN_TEAMS; do
+            echo "Processing team: $TEAM_SLUG"
+
+            # チームに push (Write) 権限を付与
+            # PUT /orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X PUT \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -d '{"permission":"push"}' \
+              "https://api.github.com/orgs/$OWNER/teams/$TEAM_SLUG/repos/$OWNER/$REPO_NAME")
+
+            if [ "$STATUS" == "204" ]; then
+              echo "✅ Team '$TEAM_SLUG' added with Write access."
+            else
+              echo "❌ Failed to add team '$TEAM_SLUG'. Status code: $STATUS"
+              echo "   Check if team slug is correct and app has permissions."
+              exit 1
+            fi
+          done
 
       - name: CODEOWNERS作成とPush (Actions有効化)
         run: |
