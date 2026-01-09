@@ -289,27 +289,9 @@ jobs:
           TARGET_REPO="${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}"
           echo "Setting up rulesets for $TARGET_REPO"
 
-          # ルールセット定義ファイルのディレクトリ (現在作業中のリポジトリ内)
-          # チェックアウトしていない場合、${{ github.workspace }} は使えますが、
-          # ソースコード自体は actions/checkout で取得しておく必要があります。
-          # ただし、このワークフローの冒頭には actions/checkout がありません。
-          # そのため、ルールセットファイルもこのワークフロー定義リポジトリから取得する必要があります。
-
-          # 現在のリポジトリ（Repo Factory）を一時的にCloneしてファイルを取得するのが安全です
-          # または、curl で Raw コンテンツを取得します
-          FACTORY_REPO="${{ github.repository }}" # current repo factory
-
-          # ルールセットJSONファイルのリスト
-          # ここでは .github/rulesets/ 内の .json, .jsonc ファイルを対象とする想定
-          # 例: ruleset_main.jsonc -> mainブランチ向け
-
-          # Factoryリポジトリからファイルを取得するために、APIを使用します
-          # (Raw URLへアクセスするには Token が必要)
-
+          # ルールセット定義ファイルのディレクトリ
+          FACTORY_REPO="${{ github.repository }}" 
           RULES_DIR=".github/rulesets"
-
-          # 対象とするブランチのリスト (main + OTHER_BRANCHES)
-          # 変数展開してリストを作成
           TARGET_BRANCHES="main ${{ env.OTHER_BRANCHES }}"
 
           echo "Target branches for rulesets: $TARGET_BRANCHES"
@@ -319,11 +301,9 @@ jobs:
             echo "---------------------------------------------------"
             echo "Checking ruleset file for branch: $BRANCH ($FILE)"
             
-            # コンテンツの取得
-            # GitHub API (Get repository content) を使用
             CONTENT_URL="https://api.github.com/repos/$FACTORY_REPO/contents/$RULES_DIR/$FILE"
             
-            # 存在チェックを兼ねてヘッダーのみ取得 (HTTPステータス確認)
+            # 存在確認
             FILE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" $CONTENT_URL)
@@ -339,37 +319,42 @@ jobs:
             DOWNLOAD_RESP=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" $CONTENT_URL)
               
-            # コンテンツがあるか再確認 (念のため)
             if ! echo "$DOWNLOAD_RESP" | grep -q '"content":'; then
                echo "❌ Error: Failed to parse content for $FILE"
                continue
             fi
             
-            # Use jq to extract content and decode base64 (handles newlines correctly)
+            # JSON抽出とデコード (jqを使用)
             echo "$DOWNLOAD_RESP" | jq -r .content | base64 -d > temp_ruleset.json
             
-            # Remove comments (lines starting with // and inline comments)
-            # using sed to remove everything from // to the end of the line
+            # コメント削除と整形
+            # sedで // 以降を削除。文字列内の // を誤検知するリスクがあるが、
+            # 現在の定義ファイルにはURL等が含まれていないため許容する。
             sed 's|//.*||g' temp_ruleset.json > clean_ruleset.json
 
-            # ルールセットの作成 (POST /repos/{owner}/{repo}/rulesets)
             echo "Creating ruleset for branch: $BRANCH..."
             
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            # 作成実行 (レスポンスボディも取得してエラー詳細を表示)
+            HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" \
               -X POST \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/$TARGET_REPO/rulesets" \
               -d @clean_ruleset.json)
+
+            # ステータスコードとボディを分離
+            HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
+            HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
               
             if [ "$HTTP_CODE" == "201" ]; then
               echo "✅ Ruleset created for $BRANCH"
             else
               echo "❌ Failed to create ruleset for $BRANCH. Status: $HTTP_CODE"
-              # デバッグ用にレスポンスを表示（必要に応じて）
-              # cat clean_ruleset.json
-              # エラーでも後続のブランチ処理は続けるため exit せず continue
-              continue
+              echo "⬇️ Error Response Body:"
+              echo "$HTTP_BODY" | jq . || echo "$HTTP_BODY"
+              # デバッグ用に送信したJSONを表示
+              echo "⬇️ Sent JSON Payload (First 20 lines):"
+              head -n 20 clean_ruleset.json
             fi
           done
