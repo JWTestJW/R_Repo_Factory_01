@@ -17,12 +17,15 @@ on:
       codeowner:
         description: "Code Owner（カンマ区切り）"
         required: true
+        default: "jiangtestgm, suzhen-copilot"
       team_slug:
         description: "Team Slug（Team名ではありません）"
         required: true
+        default: "test001"
       study_no:
         description: "StudyNo カスタムプロパティ値"
         required: true
+        default: "STD001"
 
 jobs:
   create-repo:
@@ -342,10 +345,12 @@ jobs:
                continue
             fi
             
-            echo "$DOWNLOAD_RESP" | grep '"content":' | cut -d '"' -f 4 | base64 -d > temp_ruleset.json
+            # Use jq to extract content and decode base64 (handles newlines correctly)
+            echo "$DOWNLOAD_RESP" | jq -r .content | base64 -d > temp_ruleset.json
             
-            # 簡易コメント削除 (行頭の // のみ対応)
-            grep -v "^\s*//" temp_ruleset.json > clean_ruleset.json
+            # Remove comments (lines starting with // and inline comments)
+            # using sed to remove everything from // to the end of the line
+            sed 's|//.*||g' temp_ruleset.json > clean_ruleset.json
 
             # ルールセットの作成 (POST /repos/{owner}/{repo}/rulesets)
             echo "Creating ruleset for branch: $BRANCH..."
