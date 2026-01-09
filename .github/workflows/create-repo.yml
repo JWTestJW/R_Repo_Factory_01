@@ -15,9 +15,9 @@ on:
         required: true
         default: "AEGIS_S_STD001_xxxxxx"
       codeowner:
-        description: "Code Owner（UserIDまたはTeamSlug）"
+        description: "Code Owner（UserIDまたはTeamSlug、カンマ区切りで複数指定可）"
         required: true
-        default: "jiangtestgm, suzhen-copilot"
+        default: "test001Leader"
       team_slug:
         description: "Team Slug（Team名ではありません）"
         required: true
