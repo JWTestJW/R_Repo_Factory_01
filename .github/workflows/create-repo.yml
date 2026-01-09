@@ -17,7 +17,7 @@ on:
       codeowner:
         description: "Code Owner（UserIDまたはTeamSlug、カンマ区切りで複数指定可）"
         required: true
-        default: "test001Leader"
+        default: "test001leader"
       team_slug:
         description: "Team Slug（Team名ではありません）"
         required: true
@@ -86,29 +86,49 @@ jobs:
           for OWNER in $CLEAN_OWNERS; do
             echo "  Checking: $OWNER"
             
+            # ---------------------------------------------------
             # 1. ユーザーチェック (/members/{user})
-            STATUS_USER=$(curl -s -o /dev/null -w "%{http_code}" \
+            # ---------------------------------------------------
+            # まず組織のメンバーかどうかを確認
+            STATUS_MEMBER=$(curl -s -o /dev/null -w "%{http_code}" \
               -H "Authorization: Bearer $GH_TOKEN" \
               https://api.github.com/orgs/$ORG_NAME/members/$OWNER)
+
+            if [ "$STATUS_MEMBER" == "204" ]; then
+              # メンバーであれば、正規の大文字小文字(login)を取得
+              USER_JSON=$(curl -s \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                https://api.github.com/users/$OWNER)
               
-            if [ "$STATUS_USER" == "204" ]; then
-              echo "    ✅ Found User: $OWNER"
-              PREPARED_OWNERS="$PREPARED_OWNERS @$OWNER"
-              continue
+              CANONICAL_USER=$(echo "$USER_JSON" | jq -r .login)
+
+              if [ "$CANONICAL_USER" != "null" ] && [ -n "$CANONICAL_USER" ]; then
+                echo "    ✅ Found User: $CANONICAL_USER (Input: $OWNER)"
+                PREPARED_OWNERS="$PREPARED_OWNERS @$CANONICAL_USER"
+                continue
+              fi
             fi
             
+            # ---------------------------------------------------
             # 2. チームチェック (/teams/{slug})
-            STATUS_TEAM=$(curl -s -o /dev/null -w "%{http_code}" \
+            # ---------------------------------------------------
+            # チーム情報を取得して正規のSlugを確認
+            TEAM_JSON=$(curl -s \
               -H "Authorization: Bearer $GH_TOKEN" \
               https://api.github.com/orgs/$ORG_NAME/teams/$OWNER)
+            
+            # 成功時(200 OK)はJSONにslugが含まれる。失敗時はmessage等。
+            CANONICAL_SLUG=$(echo "$TEAM_JSON" | jq -r .slug)
 
-            if [ "$STATUS_TEAM" == "200" ]; then
-              echo "    ✅ Found Team: $OWNER"
-              # Teamの場合は @org/slug の形式にする必要がある
-              PREPARED_OWNERS="$PREPARED_OWNERS @$ORG_NAME/$OWNER"
+            if [ "$CANONICAL_SLUG" != "null" ] && [ -n "$CANONICAL_SLUG" ]; then
+              echo "    ✅ Found Team: $CANONICAL_SLUG (Input: $OWNER)"
+              PREPARED_OWNERS="$PREPARED_OWNERS @$ORG_NAME/$CANONICAL_SLUG"
               continue
             fi
 
+            # ---------------------------------------------------
+            # 3. エラー処理
+            # ---------------------------------------------------
             # どちらもNGの場合
             echo "❌ '$OWNER' は、組織($ORG_NAME)のメンバーでもチームでもありません。"
             exit 1
