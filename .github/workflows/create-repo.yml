@@ -264,6 +264,30 @@ jobs:
           git push origin main
 
           # ---------------------------------------------------
+          # Pull Request設定 (Merge Policies)
+          # ---------------------------------------------------
+          # Rulesetで "required_linear_history" を有効にしているため、
+          # GithubのPR設定側でも Squash Merge のみを許可し、Merge Commit と Rebase は禁止する必要があります。
+          # 設定しないと、PR画面でMergeボタンが押せない、またはルール違反でマージできない状況になります。
+
+          echo "Configuring PR merge strategies (Squash only)..."
+
+          # PATCH /repos/{owner}/{repo}
+          # allow_squash_merge: true
+          # allow_merge_commit: false
+          # allow_rebase_merge: false
+          curl -s -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository_owner }}/$REPO_NAME" \
+            -d '{
+              "allow_squash_merge": true,
+              "allow_merge_commit": false,
+              "allow_rebase_merge": false,
+              "delete_branch_on_merge": false
+            }'
+
+          # ---------------------------------------------------
           # 分支作成: dev, qa... (基于main)
           # ---------------------------------------------------
           echo "Creating additional branches: ${{ env.OTHER_BRANCHES }}"

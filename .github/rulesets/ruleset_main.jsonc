@@ -12,14 +12,16 @@
 
   // バイパスリスト (Bypass list)
   // 特定のロール、チーム、アプリにルールの無視を許可します。
-  // 注意: Organization管理者などはデフォルトでバイパスできる場合がありますが、明示的に設定可能です。
-  // "bypass_actors": [
-  //   {
-  //     "actor_id": 1,
-  //     "actor_type": "OrganizationAdmin",
-  //     "bypass_mode": "always"
-  //   }
-  // ],
+  // Organization管理者やリポジトリ管理者が緊急時にルールを無視して操作できるようにするために重要です。
+  "bypass_actors": [
+    {
+      // Repository Admin (Maintainer) role
+      // 5: Maintainer (管理者権限)
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
 
   "conditions": {
     "ref_name": {
@@ -49,7 +51,7 @@
       "parameters": {
         // マージに必要な承認数
         // 0: 承認は不要だがPRは必須, 1以上: 指定数の承認が必要 (Privateリポジトリの無料版では制限機能)
-        "required_approving_review_count": 0,
+        "required_approving_review_count": 1,
 
         // 新しいコミットがプッシュされた際に、既存の承認を取り消すか
         // true: 取り消す (再レビューが必要), false: 取り消さない
@@ -57,7 +59,7 @@
 
         // コードオーナー (CODEOWNERS) によるレビューを必須にするか (Privateリポジトリの無料版では制限機能)
         // true: 必須, false: 任意
-        "require_code_owner_review": false,
+        "require_code_owner_review": true,
 
         // 最新のプッシュに対して承認を必須にするか (承認後にプッシュされた場合、再承認が必要)
         // true: 必須, false: 任意
