@@ -67,7 +67,13 @@
 
         // PR内の会話スレッドがすべて解決済みであることを必須にするか
         // true: 必須, false: 任意
-        "required_review_thread_resolution": false
+        "required_review_thread_resolution": false,
+
+        // 許可されるマージ方法
+        // merge, squash, rebase のいずれかまたは組み合わせで指定
+        "allowed_merge_methods": [
+          "squash" // Squash merge を許可
+        ]
       }
     }
     // {
