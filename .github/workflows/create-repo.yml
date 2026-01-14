@@ -471,3 +471,30 @@ jobs:
               head -n 20 clean_ruleset.json
             fi
           done
+
+      - name: Initial Tag v0.0.0
+        run: |
+          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          echo "Creating initial tag v0.0.0 for $REPO_NAME..."
+
+          # 作業用ディレクトリ
+          WORK_DIR="temp_tag_$REPO_NAME"
+          mkdir -p $WORK_DIR
+          cd $WORK_DIR
+
+          # 新リポジトリをclone (GH_TOKEN使用)
+          git clone --depth 1 "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository_owner }}/$REPO_NAME.git" .
+
+          # Git用户设定
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create Tag
+          git tag v0.0.0
+          git push origin v0.0.0
+
+          echo "✅ Tag v0.0.0 created and pushed."
+
+          # 後始末
+          cd ..
+          rm -rf $WORK_DIR
