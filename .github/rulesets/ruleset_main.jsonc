@@ -59,7 +59,7 @@
 
         // コードオーナー (CODEOWNERS) によるレビューを必須にするか (Privateリポジトリの無料版では制限機能)
         // true: 必須, false: 任意
-        "require_code_owner_review": true,
+        "require_code_owner_review": false,
 
         // 最新のプッシュに対して承認を必須にするか (承認後にプッシュされた場合、再承認が必要)
         // true: 必須, false: 任意
@@ -75,19 +75,23 @@
           "merge" // MergeCommit を許可
         ]
       }
+    },
+    {
+      "type": "required_status_checks", // マージ前のステータスチェック (CI) 合格を必須にします (Privateリポジトリの無料版では制限機能)
+      "parameters": {
+        // マージする前に、ブランチがターゲットブランチ(main)に対して最新であることを要求するか
+        // true: 最新である必要がある (遅れている場合 update が必要), false: 厳密には要求しない
+        "strict_required_status_checks_policy": true,
+
+        // 必須とするステータスチェックのリスト
+        // 配列内にオブジェクトとして指定 (例: {"context": "build-job"})
+        "required_status_checks": [
+          "validate-pr", // PR の方向けチェック
+          "validate-release-label", // ラベル選択内容チェック
+          "check-renv-lock" // renv.lock の整合性チェック
+        ]
+      }
     }
-    // {
-    //   "type": "required_status_checks", // マージ前のステータスチェック (CI) 合格を必須にします (Privateリポジトリの無料版では制限機能)
-    //   "parameters": {
-    //     // マージする前に、ブランチがターゲットブランチ(main)に対して最新であることを要求するか
-    //     // true: 最新である必要がある (遅れている場合 update が必要), false: 厳密には要求しない
-    //     "strict_required_status_checks_policy": true,
-    //
-    //     // 必須とするステータスチェックのリスト
-    //     // 配列内にオブジェクトとして指定 (例: {"context": "build-job"})
-    //     "required_status_checks": []
-    //   }
-    // }
 
     // --- 以下はUIで設定可能なその他のルール (Enterprise/Pro向けまたは高度な機能) ---
 
