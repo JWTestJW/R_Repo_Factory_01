@@ -51,7 +51,7 @@
       "parameters": {
         // マージに必要な承認数
         // 0: 承認は不要だがPRは必須, 1以上: 指定数の承認が必要 (Privateリポジトリの無料版では制限機能)
-        "required_approving_review_count": 1,
+        "required_approving_review_count": 0,
 
         // 新しいコミットがプッシュされた際に、既存の承認を取り消すか
         // true: 取り消す (再レビューが必要), false: 取り消さない
@@ -72,7 +72,7 @@
         // 許可されるマージ方法
         // merge, squash, rebase のいずれかまたは組み合わせで指定
         "allowed_merge_methods": [
-          "squash" // Squash merge を許可
+          "merge" // MergeCommit を許可
         ]
       }
     }
