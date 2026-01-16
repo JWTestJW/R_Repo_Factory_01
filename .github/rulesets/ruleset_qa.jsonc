@@ -86,7 +86,7 @@
         // 必須とするステータスチェックのリスト
         // 配列内にオブジェクトとして指定 (例: {"context": "build-job"})
         "required_status_checks": [
-          "validate-pr", // PR の方向けチェック
+          "check-pr-direction", // PR の方向けチェック
           "check-renv-lock" // renv.lock の整合性チェック
         ]
       }
