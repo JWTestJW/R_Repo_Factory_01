@@ -17,11 +17,11 @@ on:
       codeowner:
         description: "Code Owner（UserIDまたはTeamSlug、カンマ区切りで複数指定可）"
         required: true
-        default: "test001leader"
+        default: "jiangtestgm"
       team_slug:
         description: "Team Slug（Team名ではありません）、カンマ区切りで複数指定可"
         required: true
-        default: "test001, test001leader"
+        default: "test001"
       study_no:
         description: "StudyNo カスタムプロパティ値"
         required: true
