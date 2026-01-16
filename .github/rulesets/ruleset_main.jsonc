@@ -42,10 +42,10 @@
       // 注意: このルールが存在すると、対象名のブランチを新規作成または再作成できなくなります。
       // 旧保護設定 (block_creations: false) と同様にする場合は、このブロックを削除してください。
     },
-    {
-      "type": "required_linear_history" // マージコミットを禁止し、一直線の履歴 (Linear history) を強制します。
-      // Squash merge または Rebase merge が必要になります。
-    },
+    // {
+    //   "type": "required_linear_history" // マージコミットを禁止し、一直線の履歴 (Linear history) を強制します。
+    //   // Squash merge または Rebase merge が必要になります。
+    // },
     {
       "type": "pull_request", // プルリクエスト (PR) を必須にします
       "parameters": {
@@ -86,9 +86,9 @@
         // 必須とするステータスチェックのリスト
         // 配列内にオブジェクトとして指定 (例: {"context": "build-job"})
         "required_status_checks": [
-          "check-pr-direction", // PR の方向けチェック
-          "check-release-label", // ラベル選択内容チェック
-          "check-renv-lock" // renv.lock の整合性チェック
+          { "context": "check-pr-direction" }, // PR の方向けチェック
+          { "context": "check-release-label" }, // ラベル選択内容チェック
+          { "context": "check-renv-lock" } // renv.lock の整合性チェック
         ]
       }
     }
