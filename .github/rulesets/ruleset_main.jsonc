@@ -81,7 +81,7 @@
       "parameters": {
         // マージする前に、ブランチがターゲットブランチ(main)に対して最新であることを要求するか
         // true: 最新である必要がある (遅れている場合 update が必要), false: 厳密には要求しない
-        "strict_required_status_checks_policy": true,
+        "strict_required_status_checks_policy": false,
 
         // 必須とするステータスチェックのリスト
         // 配列内にオブジェクトとして指定 (例: {"context": "build-job"})
