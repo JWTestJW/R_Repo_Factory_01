@@ -35,6 +35,10 @@ on:
           - Team
           - Single
 
+env:
+  OTHERS_BRANCHES: ""
+  VALIDATED_CODEOWNERS: ""
+
 jobs:
   create-repo:
     runs-on: ubuntu-latest
