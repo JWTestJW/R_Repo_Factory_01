@@ -11,9 +11,9 @@ on:
         required: true
         default: "AEGIS_R_template_20260108_1"
       repo_name:
-        description: "新しいリポジトリ名（例：AEGIS_S_STD001_xxxxxx）"
+        description: "新しいリポジトリ名（例：AEGIS-PRD/ZTEST-S-<MoleculeNo>-<StudyNo>-<ReportingEventName>-<EnvironmentName> | AEGIS-PRD/ZTEST-M-<MoleculeNo>-<ReportingEventName>-<EnvironmentName>）"
         required: true
-        default: "AEGIS_S_STD001_xxxxxx"
+        default: "AEGIS-PRD-S-RO1234567-STD0001-ReportingEvent1-dev"
       codeowner:
         description: "Code Owner（UserIDまたはTeamSlug、カンマ区切りで複数指定可）"
         required: true
@@ -25,7 +25,7 @@ on:
       study_no:
         description: "StudyNo カスタムプロパティ値"
         required: true
-        default: "STD001"
+        default: "STD0001"
       team_mode:
         description: "開発モード (Single: 個人/管理者のみ, Team: 複数人/レビュー必須)"
         required: true
@@ -158,13 +158,29 @@ jobs:
             exit 1
           fi
 
-          # ルール 2：構成チェック（AEGIS_S_STD001_xxxxxx）
-          # 第一部分: AEGIS
-          # 第二部分: P or S
-          # 第三部分: STD or PRO start
-          if ! [[ "$REPO_NAME" =~ ^AEGIS_[PS]_(STD|PRO) ]]; then
-             echo "❌ リポジトリ名の形式が正しくありません（例：AEGIS_S_STD001_xxxxxx）"
-             exit 1
+          # ルール 2：構成チェック（新仕様 S/M タイプ）
+          # 例:
+          #   Sタイプ: AEGIS-PRD-S-RO1234567-STD0001-ReportingEvent1-dev
+          #   Mタイプ: AEGIS-ZTEST-M-RO1234567-ReportingEvent2-dev
+          IFS='-' read -ra PARTS <<< "$REPO_NAME"
+          if [ ${#PARTS[@]} -lt 3 ]; then
+            echo "❌ リポジトリ名の形式が正しくありません（分割後の要素数不足）"
+            exit 1
+          fi
+          TYPE="${PARTS[2]}"
+          if [ "$TYPE" == "S" ]; then
+            if [ ${#PARTS[@]} -lt 7 ]; then
+              echo "❌ Sタイプのリポジトリ名の形式が正しくありません（要素数不足）"
+              exit 1
+            fi
+          elif [ "$TYPE" == "M" ]; then
+            if [ ${#PARTS[@]} -lt 6 ]; then
+              echo "❌ Mタイプのリポジトリ名の形式が正しくありません（要素数不足）"
+              exit 1
+            fi
+          else
+            echo "❌ リポジトリ名の第3部分はSまたはMである必要があります"
+            exit 1
           fi
 
           # ルール 3：長さ制限 (Githubの推奨に従う、最大100文字とする)
