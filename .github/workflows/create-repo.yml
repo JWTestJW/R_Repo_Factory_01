@@ -11,7 +11,15 @@ on:
         required: true
         default: "AEGIS_R_template_20260108_1"
       repo_name:
-        description: "新しいリポジトリ名（例：AEGIS-PRD/ZTEST-S-<MoleculeNo>-<StudyNo>-<ReportingEventName>-<EnvironmentName> | AEGIS-PRD/ZTEST-M-<MoleculeNo>-<ReportingEventName>-<EnvironmentName>）"
+        description: |
+          新しいリポジトリ名（各部分は‐で区切る）
+          AEGIS-                ※固定文字
+          PRD/ZTEST-            ※自由に設定可能
+          S-                    ※S/Mタイプ指定
+          <MoleculeNo>-         ※SもMも必須
+          <StudyNo>-            ※Sの場合必須、Mの場合不要
+          <ReportingEventName>- ※自由に設定可能、フォルダ名対応必要
+          <EnvironmentName>     ※環境名、Selfhostedのラベル対応必要
         required: true
         default: "AEGIS-PRD-S-RO1234567-STD0001-ReportingEvent1-dev"
       codeowner:
