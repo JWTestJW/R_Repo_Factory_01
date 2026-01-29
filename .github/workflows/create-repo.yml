@@ -13,12 +13,12 @@ on:
       repo_name:
         description: |
           新しいリポジトリ名（各部分は‐で区切る）
-          AEGIS-                ※固定文字
-          PRD/ZTEST-            ※自由に設定可能
-          S-                    ※S/Mタイプ指定
-          <MoleculeNo>-         ※SもMも必須
-          <StudyNo>-            ※Sの場合必須、Mの場合不要
-          <ReportingEventName>- ※自由に設定可能、フォルダ名対応必要
+          AEGIS-                ※固定文字<br>
+          PRD/ZTEST-            ※自由に設定可能<br>
+          S-                    ※S/Mタイプ指定<br>
+          <MoleculeNo>-         ※SもMも必須<br>
+          <StudyNo>-            ※Sの場合必須、Mの場合不要\n
+          <ReportingEventName>- ※自由に設定可能、フォルダ名対応必要\n
           <EnvironmentName>     ※環境名、Selfhostedのラベル対応必要
         required: true
         default: "AEGIS-PRD-S-RO1234567-STD0001-ReportingEvent1-dev"
