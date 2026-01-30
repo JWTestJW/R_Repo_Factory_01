@@ -10,18 +10,46 @@ on:
         description: "テンプレートリポジトリ名"
         required: true
         default: "AEGIS_R_template_20260108_1"
-      repo_name:
+      _repo_name_hint:
         description: |
-          新しいリポジトリ名（各部分は‐で区切る）
-          AEGIS-                ※固定文字
-          PRD/ZTEST-            ※自由に設定可能
-          S-                    ※S/Mタイプ指定
-          <MoleculeNo>-         ※SもMも必須
-          <StudyNo>-            ※Sの場合必須、Mの場合不要
-          <ReportingEventName>- ※自由に設定可能、フォルダ名対応必要
-          <EnvironmentName>     ※環境名、Selfhostedのラベル対応必要
+          入力不要。リポジトリ名は下記6または7項目をハイフン（-）で連結して自動生成されます。
+          AEGIS-[env_code]-[repo_type]-[molecule_no]-([study_no]-)[reporting_event]-[environment_name]
+          ※ AEGIS は固定、study_no は Sタイプのみ必須、Mタイプでは省略されます。
+        required: false
+        default: "例：AEGIS-PRD-S-RO1234567-STD0001-ReportingEvent1-dev"
+      env_code:
+        description: "〇〇説明用、自由に設定可能（例: PRD, ZTEST等）"
         required: true
-        default: "AEGIS-PRD-S-RO1234567-STD0001-ReportingEvent1-dev"
+        default: "PRD"
+      repo_type:
+        description: "リポジトリタイプ"
+        required: true
+        type: choice
+        options:
+          - S
+          - M
+        default: "S"
+      molecule_no:
+        description: "MoleculeNo（SタイプもMタイプも必須）"
+        required: true
+        default: "RO1234567"
+      study_no:
+        description: "StudyNo（Sタイプ必須、Mタイプ不要）"
+        required: false
+        default: "STD0001"
+      reporting_event:
+        description: "自由に設定可能、フォルダ名に対応必要"
+        required: true
+        default: "ReportingEvent1"
+      environment_name:
+        description: "環境名、self-hosted Runner のラベルに対応必要"
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - prod
+        default: "dev"
       codeowner:
         description: "Code Owner（UserIDまたはTeamSlug、カンマ区切りで複数指定可）"
         required: true
@@ -30,10 +58,6 @@ on:
         description: "Team Slug（Team名ではありません）、カンマ区切りで複数指定可"
         required: true
         default: "test001"
-      study_no:
-        description: "StudyNo カスタムプロパティ値"
-        required: true
-        default: "STD0001"
       team_mode:
         description: "開発モード (Single: 個人/管理者のみ, Team: 複数人/レビュー必須)"
         required: true
@@ -161,7 +185,20 @@ jobs:
           # ---------------------------------------------------
           # 3. リポジトリ名のルールチェック
           # ---------------------------------------------------
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          # _repo_name_hintの説明に従い、入力パラメータからリポジトリ名を組み立てる
+          ENV_CODE="${{ github.event.inputs.env_code }}"
+          REPO_TYPE="${{ github.event.inputs.repo_type }}"
+          MOLECULE_NO="${{ github.event.inputs.molecule_no }}"
+          STUDY_NO="${{ github.event.inputs.study_no }}"
+          REPORTING_EVENT="${{ github.event.inputs.reporting_event }}"
+          ENVIRONMENT_NAME="${{ github.event.inputs.environment_name }}"
+
+          if [ "$REPO_TYPE" == "S" ]; then
+            REPO_NAME="AEGIS-${ENV_CODE}-${REPO_TYPE}-${MOLECULE_NO}-${STUDY_NO}-${REPORTING_EVENT}-${ENVIRONMENT_NAME}"
+          else
+            REPO_NAME="AEGIS-${ENV_CODE}-${REPO_TYPE}-${MOLECULE_NO}-${REPORTING_EVENT}-${ENVIRONMENT_NAME}"
+          fi
+
           echo "リポジトリ名を検証中: $REPO_NAME"
 
           # ルール 1：文字種チェック（英数字, _, - のみ）
@@ -212,6 +249,7 @@ jobs:
           fi
 
           echo "✅ 検証に合格しました"
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
 
       - name: テンプレートからリポジトリを作成
         run: |
@@ -221,7 +259,7 @@ jobs:
             https://api.github.com/repos/${{ github.repository_owner }}/${{ github.event.inputs.template_name }}/generate \
             -d @- <<EOF
           {
-            "name": "${{ github.event.inputs.repo_name }}",
+            "name": "${{ env.REPO_NAME }}",
             "owner": "${{ github.repository_owner }}",
             "private": false
           }
@@ -229,7 +267,7 @@ jobs:
 
       - name: リポジトリ作成完了待機 (Wait for creation)
         run: |
-          TARGET_REPO="${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}"
+          TARGET_REPO="${{ github.repository_owner }}/${{ env.REPO_NAME }}"
           echo "リポジトリの作成完了を待機中: $TARGET_REPO"
 
           MAX_RETRIES=10
@@ -270,7 +308,7 @@ jobs:
             -d @- <<EOF
           {
             "repository_names": [
-              "${{ github.event.inputs.repo_name }}"
+              "${{ env.REPO_NAME }}"
             ],
             "properties": [
               {
@@ -284,7 +322,7 @@ jobs:
       - name: TeamにWrite権限を付与
         run: |
           INPUT_TEAMS="${{ github.event.inputs.team_slug }}"
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          REPO_NAME="${{ env.REPO_NAME }}"
           OWNER="${{ github.repository_owner }}"
 
           echo "Assigning Write permission to teams: $INPUT_TEAMS for repo: $REPO_NAME"
@@ -315,7 +353,7 @@ jobs:
 
       - name: CODEOWNERS作成とPush (Actions有効化)
         run: |
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          REPO_NAME="${{ env.REPO_NAME }}"
           # 検証ステップで作成・整形済みの変数を使用
           FORMATTED_OWNERS="${{ env.VALIDATED_CODEOWNERS }}"
 
@@ -352,7 +390,7 @@ jobs:
           # ---------------------------------------------------
           # 分支作成: dev, qa... (基于main)
           # ---------------------------------------------------
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          REPO_NAME="${{ env.REPO_NAME }}"
 
           # 作業用ディレクトリ
           WORK_DIR="temp_branch_$REPO_NAME"
@@ -384,7 +422,7 @@ jobs:
 
       - name: Rulesetの設定 (Import from file)
         run: |
-          TARGET_REPO="${{ github.repository_owner }}/${{ github.event.inputs.repo_name }}"
+          TARGET_REPO="${{ github.repository_owner }}/${{ env.REPO_NAME }}"
           TEAM_MODE="${{ github.event.inputs.team_mode }}"
           echo "Setting up rulesets for $TARGET_REPO (Mode: $TEAM_MODE)"
 
@@ -478,7 +516,7 @@ jobs:
 
       - name: Setup Labels (Release)
         run: |
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          REPO_NAME="${{ env.REPO_NAME }}"
           echo "Setting up release labels for $REPO_NAME..."
 
           # Define Labels
@@ -504,7 +542,7 @@ jobs:
               -X POST \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${{ github.repository_owner }}/$REPO_NAME/labels" \
+              "https://api.github.com/repos/${{ github.repository_owner }}/${{ env.REPO_NAME }}/labels" \
               -d "$LABEL_DATA")
 
             HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
@@ -524,7 +562,7 @@ jobs:
 
       - name: Initial Tag v0.0.0
         run: |
-          REPO_NAME="${{ github.event.inputs.repo_name }}"
+          REPO_NAME="${{ env.REPO_NAME }}"
           echo "Creating initial tag v0.0.0 for $REPO_NAME..."
 
           # 作業用ディレクトリ
