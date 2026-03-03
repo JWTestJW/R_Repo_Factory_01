@@ -9,7 +9,7 @@ on:
       repo_name:
         description: "削除するリポジトリ名"
         required: true
-        default: "AEGIS-PRD-S-RO1234567-STD0001-ReportingEvent1-dev"
+        default: "AEGIS-PRD-S-xxxx-yyyy-zzzz-dev"
 
 jobs:
   delete-repo:
